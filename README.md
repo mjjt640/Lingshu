@@ -1,3 +1,3 @@
-# claude-code-desktop
+# 灵枢 / Lingshu
 
-Empty reset baseline.
+Runtime-first desktop agent platform.

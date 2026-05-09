@@ -2,7 +2,7 @@
 
 状态：方向已确认，等待用户审阅
 日期：2026-05-09
-项目：claude-code-desktop
+项目：灵枢 / Lingshu
 
 ## 背景
 
@@ -347,19 +347,19 @@ OpenRouter 单独作为一种 ProviderKind，即使它内部可以复用 OpenAI-
 
 ```text
 用户应用配置：
-%USERPROFILE%\.claude-code-visualizer\config.toml
+%USERPROFILE%\.lingshu\config.toml
 
 用户应用密钥：
-%USERPROFILE%\.claude-code-visualizer\secrets.toml
+%USERPROFILE%\.lingshu\secrets.toml
 
 Codex 兼容读取：
 %USERPROFILE%\.codex\config.toml
 
 工作区共享配置：
-<workspace>\.claude-code-visualizer.toml
+<workspace>\.lingshu.toml
 
 工作区本地覆盖：
-<workspace>\.claude-code-visualizer.local.toml
+<workspace>\.lingshu.local.toml
 ```
 
 配置合并优先级：
@@ -800,7 +800,7 @@ UI/E2E 测试：
 ## 待确认决策
 
 1. 产品名和应用配置目录名。  
-   当前建议：代码路径先沿用 `claude-code-visualizer`，等产品名确定后再改。
+   已确定：中文名 `灵枢`，英文名 `Lingshu`，仓库/包名建议使用 `lingshu-desktop`，配置目录使用 `.lingshu`。
 
 2. SQLite 包选择。  
    当前建议：实施计划阶段根据 Electron 和 Node 版本兼容性选择成熟包。
