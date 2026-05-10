@@ -24,6 +24,12 @@ function createConfig(): LingshuConfig {
         auth: { source: "runtime_secret", id: "openrouter-key" },
         catalog: { source: "hybrid" }
       },
+      secret_ref_main: {
+        type: "openai-compatible",
+        base_url: "https://secret.example.test/v1",
+        auth: { source: "secret_ref", ref: "shared-secret" },
+        catalog: { source: "remote" }
+      },
       compatible_main: {
         type: "openai-compatible",
         base_url: "https://llm.example.test/v1",
@@ -81,6 +87,26 @@ describe("ProviderRegistry", () => {
         max_tokens: 512,
         stream: true
       }
+    });
+  });
+
+  it("omits Authorization placeholders for OpenAI-compatible providers that do not require auth", () => {
+    const config = createConfig();
+    config.providers.no_auth = {
+      type: "openai-compatible",
+      base_url: "https://no-auth.example.test/v1",
+      auth: { source: "none" },
+      catalog: { source: "static" }
+    };
+    const registry = createProviderRegistry(config.providers);
+
+    const request = registry.getAdapter("no_auth").createChatCompletionRequest({
+      model: "test-model",
+      messages: [{ role: "user", content: "Hello" }]
+    });
+
+    expect(request.headers).toEqual({
+      "Content-Type": "application/json"
     });
   });
 
@@ -146,8 +172,15 @@ describe("ProviderRegistry", () => {
         id: "openrouter_main",
         type: "openrouter",
         baseUrl: "https://openrouter.ai/api/v1",
-        auth: { source: "runtime_secret", status: "configured" },
+        auth: { source: "runtime_secret", status: "missing" },
         catalog: { source: "hybrid" }
+      },
+      {
+        id: "secret_ref_main",
+        type: "openai-compatible",
+        baseUrl: "https://secret.example.test/v1",
+        auth: { source: "secret_ref", status: "missing" },
+        catalog: { source: "remote" }
       },
       {
         id: "compatible_main",
@@ -169,5 +202,6 @@ describe("ProviderRegistry", () => {
     expect(JSON.stringify(summaries)).not.toContain("sk-real");
     expect(JSON.stringify(summaries)).not.toContain("sk-secret");
     expect(JSON.stringify(summaries)).not.toContain("openrouter-key");
+    expect(JSON.stringify(summaries)).not.toContain("shared-secret");
   });
 });

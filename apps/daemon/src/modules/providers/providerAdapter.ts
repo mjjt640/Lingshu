@@ -53,6 +53,13 @@ export function getProviderAuthStatus(auth: AuthSource): ProviderSummary["auth"]
     };
   }
 
+  if (auth.source === "secret_ref" || auth.source === "runtime_secret") {
+    return {
+      source: auth.source,
+      status: "missing"
+    };
+  }
+
   return {
     source: auth.source,
     status: "configured"

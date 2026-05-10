@@ -10,23 +10,27 @@ export interface ModelSelectionStore {
   switchProfile(profileId: string): ModelSwitchResult;
 }
 
-function getInitialSelectedProfile(config: LingshuConfig): string | null {
-  if (config.app.default_profile && config.profiles[config.app.default_profile]) {
+function getInitialSelectedProfile(
+  config: LingshuConfig,
+  validProfiles: Set<string>
+): string | null {
+  if (config.app.default_profile && validProfiles.has(config.app.default_profile)) {
     return config.app.default_profile;
   }
 
-  return Object.keys(config.profiles)[0] ?? null;
+  return validProfiles.values().next().value ?? null;
 }
 
 export function createModelSelectionStore(config: LingshuConfig): ModelSelectionStore {
-  let selectedProfile = getInitialSelectedProfile(config);
+  const validProfiles = new Set(Object.keys(config.profiles));
+  let selectedProfile = getInitialSelectedProfile(config, validProfiles);
 
   return {
     getSelectedProfile(): string | null {
       return selectedProfile;
     },
     switchProfile(profileId: string): ModelSwitchResult {
-      if (!config.profiles[profileId]) {
+      if (!validProfiles.has(profileId)) {
         throw new Error(`Model profile "${profileId}" was not found`);
       }
 

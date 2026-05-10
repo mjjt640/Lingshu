@@ -151,4 +151,24 @@ describe("ModelProfileResolver", () => {
     );
     expect(selectionStore.getSelectedProfile()).toBe("fast");
   });
+
+  it("keeps profile validity fixed after the selection store is created", () => {
+    const config = createConfig();
+    const selectionStore = createModelSelectionStore(config);
+
+    config.profiles.added_later = {
+      provider: "ollama_local",
+      model: "llama3.2"
+    };
+    delete config.profiles.local;
+
+    expect(() => selectionStore.switchProfile("added_later")).toThrow(
+      'Model profile "added_later" was not found'
+    );
+
+    expect(selectionStore.switchProfile("local")).toEqual({
+      previousProfile: "fast",
+      selectedProfile: "local"
+    });
+  });
 });

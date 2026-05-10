@@ -25,6 +25,14 @@ export function createOpenAiCompatibleAdapter(
       return openAiCompatibleModelCapabilities;
     },
     createChatCompletionRequest(input: UnifiedChatCompletionInput): ProviderRequestPreview {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+
+      if (config.auth.source !== "none") {
+        headers.Authorization = "Bearer <redacted>";
+      }
+
       const body: Record<string, unknown> = {
         model: input.model,
         messages: input.messages
@@ -45,10 +53,7 @@ export function createOpenAiCompatibleAdapter(
       return {
         method: "POST",
         url: joinProviderPath(config.base_url, "/chat/completions"),
-        headers: {
-          Authorization: "Bearer <redacted>",
-          "Content-Type": "application/json"
-        },
+        headers,
         body
       };
     }
