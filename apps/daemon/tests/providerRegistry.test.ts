@@ -53,6 +53,25 @@ describe("ProviderRegistry", () => {
     vi.unstubAllEnvs();
   });
 
+  function expectSafeUrlRejection(run: () => unknown, secrets: string[]): void {
+    let thrown: unknown;
+
+    try {
+      run();
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+
+    const message = thrown instanceof Error ? thrown.message : String(thrown);
+    expect(message).toContain("Provider baseUrl must not include credentials, query, or hash");
+
+    for (const secret of secrets) {
+      expect(message).not.toContain(secret);
+    }
+  }
+
   it("resolves OpenAI, OpenRouter, OpenAI-compatible, and Ollama configs to adapters", () => {
     const registry = createProviderRegistry(createConfig().providers);
 
@@ -88,6 +107,17 @@ describe("ProviderRegistry", () => {
         stream: true
       }
     });
+  });
+
+  it("keeps OpenRouter path base URLs usable in request previews", () => {
+    const registry = createProviderRegistry(createConfig().providers);
+
+    const request = registry.getAdapter("openrouter_main").createChatCompletionRequest({
+      model: "openai/gpt-4.1-mini",
+      messages: [{ role: "user", content: "Hello" }]
+    });
+
+    expect(request.url).toBe("https://openrouter.ai/api/v1/chat/completions");
   });
 
   it("omits Authorization placeholders for OpenAI-compatible providers that do not require auth", () => {
@@ -136,6 +166,46 @@ describe("ProviderRegistry", () => {
         stream: false
       }
     });
+  });
+
+  it("rejects unsafe OpenAI-compatible request preview base URLs without leaking secrets", () => {
+    const config = createConfig();
+    config.providers.unsafe = {
+      type: "openai-compatible",
+      base_url: "https://token-secret@example.com/v1?api_key=query-secret#hash-secret",
+      auth: { source: "none" },
+      catalog: { source: "static" }
+    };
+    const registry = createProviderRegistry(config.providers);
+
+    expectSafeUrlRejection(
+      () =>
+        registry.getAdapter("unsafe").createChatCompletionRequest({
+          model: "test-model",
+          messages: [{ role: "user", content: "Hello" }]
+        }),
+      ["token-secret", "query-secret", "hash-secret"]
+    );
+  });
+
+  it("rejects unsafe Ollama request preview base URLs without leaking secrets", () => {
+    const config = createConfig();
+    config.providers.unsafe_ollama = {
+      type: "ollama",
+      base_url: "http://token-secret@127.0.0.1:11434?api_key=query-secret#hash-secret",
+      auth: { source: "none" },
+      catalog: { source: "remote" }
+    };
+    const registry = createProviderRegistry(config.providers);
+
+    expectSafeUrlRejection(
+      () =>
+        registry.getAdapter("unsafe_ollama").createChatCompletionRequest({
+          model: "llama3.2",
+          messages: [{ role: "user", content: "Hello" }]
+        }),
+      ["token-secret", "query-secret", "hash-secret"]
+    );
   });
 
   it("throws clear errors for unsupported provider kind inputs", () => {

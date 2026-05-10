@@ -9,7 +9,7 @@ import type {
   ProviderRequestPreview,
   UnifiedChatCompletionInput
 } from "./providerAdapter.js";
-import { joinProviderPath, summarizeProviderConfig } from "./providerAdapter.js";
+import { joinSafeProviderPath, summarizeProviderConfig } from "./providerAdapter.js";
 
 export function createOllamaAdapter(config: ProviderConfig): ProviderAdapter {
   return {
@@ -43,7 +43,7 @@ export function createOllamaAdapter(config: ProviderConfig): ProviderAdapter {
 
       return {
         method: "POST",
-        url: joinProviderPath(config.base_url, "/api/chat"),
+        url: joinSafeProviderPath(config.base_url, "/api/chat"),
         headers: {
           "Content-Type": "application/json"
         },

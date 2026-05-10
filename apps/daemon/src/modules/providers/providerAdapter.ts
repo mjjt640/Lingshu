@@ -3,6 +3,7 @@ import type {
   ProviderSummary
 } from "@lingshu/shared";
 import {
+  ProviderBaseUrlSchema,
   ProviderSummarySchema,
   type AuthSource,
   type ProviderConfig,
@@ -81,4 +82,14 @@ export function summarizeProviderConfig(
 
 export function joinProviderPath(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+}
+
+export function joinSafeProviderPath(baseUrl: string, path: string): string {
+  const parsedBaseUrl = ProviderBaseUrlSchema.safeParse(baseUrl);
+
+  if (!parsedBaseUrl.success) {
+    throw new Error("Provider baseUrl must not include credentials, query, or hash");
+  }
+
+  return joinProviderPath(parsedBaseUrl.data, path);
 }

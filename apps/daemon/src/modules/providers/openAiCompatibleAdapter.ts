@@ -10,7 +10,7 @@ import type {
   ProviderRequestPreview,
   UnifiedChatCompletionInput
 } from "./providerAdapter.js";
-import { joinProviderPath, summarizeProviderConfig } from "./providerAdapter.js";
+import { joinSafeProviderPath, summarizeProviderConfig } from "./providerAdapter.js";
 
 export function createOpenAiCompatibleAdapter(
   kind: Extract<ProviderKind, "openai" | "openrouter" | "openai-compatible">,
@@ -52,7 +52,7 @@ export function createOpenAiCompatibleAdapter(
 
       return {
         method: "POST",
-        url: joinProviderPath(config.base_url, "/chat/completions"),
+        url: joinSafeProviderPath(config.base_url, "/chat/completions"),
         headers,
         body
       };
