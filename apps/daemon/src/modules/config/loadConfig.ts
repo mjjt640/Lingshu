@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import * as TOML from "@iarna/toml";
 import { getConfigPaths } from "./configPaths.js";
+import { normalizeCodexCompatConfig, type CodexCompatConfigInput } from "./codexCompat.js";
 import { defaultConfig } from "./defaultConfig.js";
 import { LingshuConfigSchema, type LingshuConfig } from "./configSchema.js";
 
@@ -26,7 +27,7 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadConfig
       continue;
     }
 
-    config = mergeConfig(config, loaded);
+    config = mergeConfig(config, normalizeCodexCompatConfig(loaded));
     sources.push(filePath);
   }
 
@@ -36,10 +37,10 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadConfig
   };
 }
 
-async function readTomlFile(filePath: string): Promise<Partial<LingshuConfig> | null> {
+async function readTomlFile(filePath: string): Promise<CodexCompatConfigInput | null> {
   try {
     const raw = await readFile(filePath, "utf8");
-    return TOML.parse(raw) as Partial<LingshuConfig>;
+    return TOML.parse(raw) as CodexCompatConfigInput;
   } catch (error) {
     if (isNodeError(error) && error.code === "ENOENT") {
       return null;

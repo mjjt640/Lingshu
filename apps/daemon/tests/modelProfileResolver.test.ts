@@ -16,6 +16,7 @@ function createConfig(): LingshuConfig {
       openai_main: {
         type: "openai",
         base_url: "https://api.openai.com/v1",
+        wire_api: "responses",
         auth: { source: "env", env: "OPENAI_API_KEY" },
         catalog: { source: "remote" }
       },
@@ -32,7 +33,8 @@ function createConfig(): LingshuConfig {
         model: "gpt-4.1-mini",
         label: "Fast cloud",
         temperature: 0.2,
-        max_output_tokens: 1024
+        max_output_tokens: 1024,
+        reasoning_effort: "high"
       },
       local: {
         provider: "ollama_local",
@@ -63,13 +65,15 @@ describe("ModelProfileResolver", () => {
         id: "openai_main",
         type: "openai",
         baseUrl: "https://api.openai.com/v1",
+        wireApi: "responses",
         auth: { source: "env", status: "missing" },
         catalog: { source: "remote" }
       },
       model: "gpt-4.1-mini",
       parameters: {
         temperature: 0.2,
-        maxOutputTokens: 1024
+        maxOutputTokens: 1024,
+        reasoningEffort: "high"
       },
       capabilities: {
         supportsStreaming: true,

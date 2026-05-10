@@ -3,7 +3,9 @@ import { z } from "zod";
 import {
   AuthSourceKindSchema,
   ProviderCatalogSourceSchema,
-  ProviderKindSchema
+  ProviderKindSchema,
+  ReasoningEffortSchema,
+  WireApiSchema
 } from "../config/types.js";
 
 export const HealthResponseSchema = z.object({
@@ -54,6 +56,7 @@ export const ProviderSummarySchema = z
     type: ProviderKindSchema,
     baseUrl: ProviderBaseUrlSchema,
     auth: ProviderAuthStatusSchema,
+    wireApi: WireApiSchema.optional(),
     catalog: z
       .object({
         source: ProviderCatalogSourceSchema
@@ -102,7 +105,8 @@ export type ModelProfilesResponse = z.infer<typeof ModelProfilesResponseSchema>;
 const ModelParametersSchema = z
   .object({
     temperature: z.number().min(0).max(2).optional(),
-    maxOutputTokens: z.number().int().positive().optional()
+    maxOutputTokens: z.number().int().positive().optional(),
+    reasoningEffort: ReasoningEffortSchema.optional()
   })
   .strict();
 

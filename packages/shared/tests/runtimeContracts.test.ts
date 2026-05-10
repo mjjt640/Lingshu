@@ -27,6 +27,7 @@ const providerSummary = {
   id: "openai_main",
   type: "openai",
   baseUrl: "https://api.openai.com/v1",
+  wireApi: "responses",
   auth: {
     source: "env",
     status: "configured"
@@ -43,7 +44,8 @@ const resolvedProfile = {
   model: "gpt-test",
   parameters: {
     temperature: 0.2,
-    maxOutputTokens: 4096
+    maxOutputTokens: 4096,
+    reasoningEffort: "high"
   },
   capabilities,
   source: "config"

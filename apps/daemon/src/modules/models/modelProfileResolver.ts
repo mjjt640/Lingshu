@@ -25,6 +25,16 @@ function cloneResolvedProfile(profile: ResolvedModelProfile): ResolvedModelProfi
   return ResolvedModelProfileSchema.parse(structuredClone(profile));
 }
 
+function addProviderRuntimeFields(
+  summary: ProviderSummary,
+  providerConfig: LingshuConfig["providers"][string]
+): ProviderSummary {
+  return {
+    ...summary,
+    ...(providerConfig.wire_api ? { wireApi: providerConfig.wire_api } : {})
+  };
+}
+
 export function createModelProfileResolver(
   config: LingshuConfig,
   selectionStore: ModelSelectionStore = createModelSelectionStore(config)
@@ -32,7 +42,9 @@ export function createModelProfileResolver(
   const providerRegistry = createProviderRegistry(config.providers);
 
   function listProviderSummaries(): ProviderSummary[] {
-    return providerRegistry.listProviderSummaries();
+    return providerRegistry
+      .listProviderSummaries()
+      .map((summary) => addProviderRuntimeFields(summary, config.providers[summary.id]));
   }
 
   function listProfileSummaries(): ModelProfileSummary[] {
@@ -81,10 +93,17 @@ export function createModelProfileResolver(
       parameters.maxOutputTokens = profile.max_output_tokens;
     }
 
+    if (profile.reasoning_effort !== undefined) {
+      parameters.reasoningEffort = profile.reasoning_effort;
+    }
+
     return ResolvedModelProfileSchema.parse({
       id: profileId,
       label: profile.label ?? profileId,
-      provider: adapter.summarizeProvider(profile.provider, providerConfig),
+      provider: addProviderRuntimeFields(
+        adapter.summarizeProvider(profile.provider, providerConfig),
+        providerConfig
+      ),
       model: profile.model,
       parameters,
       capabilities: adapter.getDefaultCapabilities(),
