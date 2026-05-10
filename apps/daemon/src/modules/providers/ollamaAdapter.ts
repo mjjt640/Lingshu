@@ -9,7 +9,11 @@ import type {
   ProviderRequestPreview,
   UnifiedChatCompletionInput
 } from "./providerAdapter.js";
-import { joinSafeProviderPath, summarizeProviderConfig } from "./providerAdapter.js";
+import {
+  getProviderAuthStatus,
+  joinSafeProviderPath,
+  summarizeProviderConfig
+} from "./providerAdapter.js";
 
 export function createOllamaAdapter(config: ProviderConfig): ProviderAdapter {
   return {
@@ -21,6 +25,7 @@ export function createOllamaAdapter(config: ProviderConfig): ProviderAdapter {
       return ollamaModelCapabilities;
     },
     createChatCompletionRequest(input: UnifiedChatCompletionInput): ProviderRequestPreview {
+      const auth = getProviderAuthStatus(config.auth);
       const options: Record<string, unknown> = {};
 
       if (input.temperature !== undefined) {
@@ -42,8 +47,10 @@ export function createOllamaAdapter(config: ProviderConfig): ProviderAdapter {
       }
 
       return {
+        preview: true,
         method: "POST",
         url: joinSafeProviderPath(config.base_url, "/api/chat"),
+        auth,
         headers: {
           "Content-Type": "application/json"
         },

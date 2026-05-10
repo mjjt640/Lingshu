@@ -1,4 +1,5 @@
 import type {
+  ProviderAuthStatus,
   ProviderConfig,
   ProviderKind,
   ProviderSummary
@@ -11,14 +12,18 @@ import type {
   UnifiedChatMessage,
   UnifiedChatCompletionInput
 } from "./providerAdapter.js";
-import { joinSafeProviderPath, summarizeProviderConfig } from "./providerAdapter.js";
+import {
+  getProviderAuthStatus,
+  joinSafeProviderPath,
+  summarizeProviderConfig
+} from "./providerAdapter.js";
 
-function createHeaders(config: ProviderConfig): Record<string, string> {
+function createHeaders(auth: ProviderAuthStatus): Record<string, string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json"
   };
 
-  if (config.auth.source !== "none") {
+  if (auth.status === "configured") {
     headers.Authorization = "Bearer <redacted>";
   }
 
@@ -96,6 +101,7 @@ export function createOpenAiCompatibleAdapter(
       return openAiCompatibleModelCapabilities;
     },
     createChatCompletionRequest(input: UnifiedChatCompletionInput): ProviderRequestPreview {
+      const auth = getProviderAuthStatus(config.auth);
       const body: Record<string, unknown> = {
         model: input.model,
         messages: mapChatMessages(input.messages)
@@ -114,13 +120,16 @@ export function createOpenAiCompatibleAdapter(
       }
 
       return {
+        preview: true,
         method: "POST",
         url: joinSafeProviderPath(config.base_url, "/chat/completions"),
-        headers: createHeaders(config),
+        auth,
+        headers: createHeaders(auth),
         body
       };
     },
     createResponsesRequest(input: UnifiedChatCompletionInput): ProviderRequestPreview {
+      const auth = getProviderAuthStatus(config.auth);
       const body: Record<string, unknown> = {
         model: input.model,
         input: mapResponsesInput(input.messages)
@@ -139,9 +148,11 @@ export function createOpenAiCompatibleAdapter(
       }
 
       return {
+        preview: true,
         method: "POST",
         url: joinSafeProviderPath(config.base_url, "/responses"),
-        headers: createHeaders(config),
+        auth,
+        headers: createHeaders(auth),
         body
       };
     }

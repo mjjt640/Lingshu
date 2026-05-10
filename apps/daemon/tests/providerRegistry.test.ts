@@ -78,6 +78,25 @@ describe("ProviderRegistry", () => {
     }
   }
 
+  function expectInsecureHttpRejection(run: () => unknown, secrets: string[] = []): void {
+    let thrown: unknown;
+
+    try {
+      run();
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+
+    const message = thrown instanceof Error ? thrown.message : String(thrown);
+    expect(message).toContain("Provider baseUrl must use https unless it targets localhost");
+
+    for (const secret of secrets) {
+      expect(message).not.toContain(secret);
+    }
+  }
+
   it("resolves OpenAI, OpenRouter, OpenAI-compatible, and Ollama configs to adapters", () => {
     const registry = createProviderRegistry(createConfig().providers);
 
@@ -88,6 +107,7 @@ describe("ProviderRegistry", () => {
   });
 
   it("maps OpenAI-compatible providers to chat completion request previews", () => {
+    vi.stubEnv("OPENAI_API_KEY", "sk-real");
     const registry = createProviderRegistry(createConfig().providers);
 
     const request = registry.getAdapter("openai_main").createChatCompletionRequest({
@@ -99,8 +119,10 @@ describe("ProviderRegistry", () => {
     });
 
     expect(request).toEqual({
+      preview: true,
       method: "POST",
       url: "https://api.openai.com/v1/chat/completions",
+      auth: { source: "env", status: "configured" },
       headers: {
         Authorization: "Bearer <redacted>",
         "Content-Type": "application/json"
@@ -113,6 +135,7 @@ describe("ProviderRegistry", () => {
         stream: true
       }
     });
+    expect(JSON.stringify(request)).not.toContain("sk-real");
   });
 
   it("maps third-party relay OpenAI-compatible chat requests with opaque model IDs", () => {
@@ -124,8 +147,10 @@ describe("ProviderRegistry", () => {
     });
 
     expect(request).toEqual({
+      preview: true,
       method: "POST",
       url: "https://relay.example.com/proxy/openai/v1/chat/completions",
+      auth: { source: "none", status: "not_required" },
       headers: {
         "Content-Type": "application/json"
       },
@@ -181,8 +206,10 @@ describe("ProviderRegistry", () => {
     });
 
     expect(request).toEqual({
+      preview: true,
       method: "POST",
       url: "https://relay.example.com/proxy/openai/v1/responses",
+      auth: { source: "none", status: "not_required" },
       headers: {
         "Content-Type": "application/json"
       },
@@ -260,6 +287,118 @@ describe("ProviderRegistry", () => {
     expect(request.url).toBe("https://openrouter.ai/api/v1/chat/completions");
   });
 
+  it("rejects remote plaintext HTTP provider summaries", () => {
+    const config = createConfig();
+    config.providers.remote_http = {
+      type: "openai-compatible",
+      base_url: "http://relay.example.com/v1",
+      auth: { source: "none" },
+      catalog: { source: "static" }
+    };
+    const registry = createProviderRegistry(config.providers);
+
+    expectInsecureHttpRejection(() => registry.listProviderSummaries());
+  });
+
+  it("rejects remote plaintext HTTP chat and responses request previews", () => {
+    const config = createConfig();
+    config.providers.remote_http = {
+      type: "openai-compatible",
+      base_url: "http://relay.example.com/v1?api_key=query-secret#hash-secret",
+      auth: { source: "none" },
+      catalog: { source: "static" }
+    };
+    const registry = createProviderRegistry(config.providers);
+
+    expectInsecureHttpRejection(
+      () =>
+        registry.getAdapter("remote_http").createChatCompletionRequest({
+          model: "vendor/model:beta",
+          messages: [{ role: "user", content: "Hello" }]
+        }),
+      ["query-secret", "hash-secret"]
+    );
+    expectInsecureHttpRejection(
+      () =>
+        registry.getAdapter("remote_http").createResponsesRequest({
+          model: "vendor/model:beta",
+          messages: [{ role: "user", content: "Hello" }]
+        }),
+      ["query-secret", "hash-secret"]
+    );
+  });
+
+  it("includes safe missing auth status without Authorization for env providers", () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    const registry = createProviderRegistry(createConfig().providers);
+
+    const request = registry.getAdapter("openai_main").createChatCompletionRequest({
+      model: "gpt-4.1-mini",
+      messages: [{ role: "user", content: "Hello" }]
+    });
+
+    expect(request.preview).toBe(true);
+    expect(request.auth).toEqual({ source: "env", status: "missing" });
+    expect(request.headers).toEqual({
+      "Content-Type": "application/json"
+    });
+    expect(JSON.stringify(request)).not.toContain("OPENAI_API_KEY");
+  });
+
+  it("includes safe missing auth status without Authorization for secret-backed providers", () => {
+    const registry = createProviderRegistry(createConfig().providers);
+
+    const runtimeSecretRequest = registry
+      .getAdapter("openrouter_main")
+      .createChatCompletionRequest({
+        model: "openai/gpt-4.1-mini",
+        messages: [{ role: "user", content: "Hello" }]
+      });
+    const secretRefRequest = registry
+      .getAdapter("secret_ref_main")
+      .createResponsesRequest({
+        model: "vendor/model:beta",
+        messages: [{ role: "user", content: "Hello" }]
+      });
+
+    expect(runtimeSecretRequest.preview).toBe(true);
+    expect(runtimeSecretRequest.auth).toEqual({
+      source: "runtime_secret",
+      status: "missing"
+    });
+    expect(runtimeSecretRequest.headers).toEqual({
+      "Content-Type": "application/json"
+    });
+    expect(secretRefRequest.preview).toBe(true);
+    expect(secretRefRequest.auth).toEqual({
+      source: "secret_ref",
+      status: "missing"
+    });
+    expect(secretRefRequest.headers).toEqual({
+      "Content-Type": "application/json"
+    });
+
+    expect(JSON.stringify(runtimeSecretRequest)).not.toContain("openrouter-key");
+    expect(JSON.stringify(secretRefRequest)).not.toContain("shared-secret");
+  });
+
+  it("includes safe configured auth status with a placeholder for inline providers", () => {
+    const registry = createProviderRegistry(createConfig().providers);
+
+    const request = registry.getAdapter("compatible_main").createResponsesRequest({
+      model: "vendor/model:beta",
+      messages: [{ role: "user", content: "Hello" }]
+    });
+
+    expect(request.preview).toBe(true);
+    expect(request.auth).toEqual({ source: "inline", status: "configured" });
+    expect(request.headers).toEqual({
+      Authorization: "Bearer <redacted>",
+      "Content-Type": "application/json"
+    });
+    expect(JSON.stringify(request)).not.toContain("sk-secret");
+  });
+
   it("omits Authorization placeholders for OpenAI-compatible providers that do not require auth", () => {
     const config = createConfig();
     config.providers.no_auth = {
@@ -291,8 +430,10 @@ describe("ProviderRegistry", () => {
     });
 
     expect(request).toEqual({
+      preview: true,
       method: "POST",
       url: "http://127.0.0.1:11434/api/chat",
+      auth: { source: "none", status: "not_required" },
       headers: {
         "Content-Type": "application/json"
       },
