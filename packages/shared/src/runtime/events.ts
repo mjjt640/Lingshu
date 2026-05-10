@@ -10,6 +10,16 @@ export const RuntimeEventSchema = z.discriminatedUnion("type", [
     type: z.literal("model.profiles_loaded"),
     count: z.number().int().nonnegative()
   }),
+  z
+    .object({
+      type: z.literal("model.switched"),
+      previousProfile: z.string().min(1).nullable(),
+      currentProfile: z.string().min(1),
+      provider: z.string().min(1),
+      model: z.string().min(1),
+      switchedAt: z.string().datetime()
+    })
+    .catchall(z.never()),
   z.object({
     type: z.literal("runtime.error"),
     message: z.string().min(1)

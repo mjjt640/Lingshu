@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+export const AuthSourceKindSchema = z.enum([
+  "none",
+  "env",
+  "secret_ref",
+  "runtime_secret",
+  "inline"
+]);
+
+export type AuthSourceKind = z.infer<typeof AuthSourceKindSchema>;
+
 export const AuthSourceSchema = z.discriminatedUnion("source", [
   z.object({ source: z.literal("none") }),
   z.object({ source: z.literal("env"), env: z.string().min(1) }),
@@ -20,13 +30,17 @@ export const ProviderKindSchema = z.enum([
 
 export type ProviderKind = z.infer<typeof ProviderKindSchema>;
 
+export const ProviderCatalogSourceSchema = z.enum(["static", "remote", "hybrid"]);
+
+export type ProviderCatalogSource = z.infer<typeof ProviderCatalogSourceSchema>;
+
 export const ProviderConfigSchema = z.object({
   type: ProviderKindSchema,
   base_url: z.string().url(),
   auth: AuthSourceSchema,
   catalog: z
     .object({
-      source: z.enum(["static", "remote", "hybrid"])
+      source: ProviderCatalogSourceSchema
     })
     .default({ source: "hybrid" })
 });
