@@ -15,6 +15,30 @@ export const HealthResponseSchema = z.object({
 
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 
+function isSafeProviderBaseUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.username === "" &&
+      url.password === "" &&
+      url.search === "" &&
+      url.hash === ""
+    );
+  } catch {
+    return false;
+  }
+}
+
+export const ProviderBaseUrlSchema = z
+  .string()
+  .url()
+  .refine(isSafeProviderBaseUrl, {
+    message: "Provider baseUrl must not include credentials, query, or hash"
+  });
+
+export type ProviderBaseUrl = z.infer<typeof ProviderBaseUrlSchema>;
+
 export const ProviderAuthStatusSchema = z
   .object({
     source: AuthSourceKindSchema,
@@ -28,7 +52,7 @@ export const ProviderSummarySchema = z
   .object({
     id: z.string().min(1),
     type: ProviderKindSchema,
-    baseUrl: z.string().url(),
+    baseUrl: ProviderBaseUrlSchema,
     auth: ProviderAuthStatusSchema,
     catalog: z
       .object({
@@ -90,20 +114,20 @@ export const ResolvedModelProfileSchema = z.object({
   parameters: ModelParametersSchema,
   capabilities: ModelCapabilitiesSchema,
   source: z.string().min(1)
-});
+}).strict();
 
 export type ResolvedModelProfile = z.infer<typeof ResolvedModelProfileSchema>;
 
 export const ModelSelectionResponseSchema = z.object({
   selectedProfile: z.string().min(1).nullable(),
   resolvedProfile: ResolvedModelProfileSchema.nullable()
-});
+}).strict();
 
 export type ModelSelectionResponse = z.infer<typeof ModelSelectionResponseSchema>;
 
 export const SwitchModelProfileRequestSchema = z.object({
   profileId: z.string().min(1)
-});
+}).strict();
 
 export type SwitchModelProfileRequest = z.infer<typeof SwitchModelProfileRequestSchema>;
 
@@ -112,7 +136,7 @@ export const SwitchModelProfileResponseSchema = z.object({
   selectedProfile: z.string().min(1),
   resolvedProfile: ResolvedModelProfileSchema,
   switchedAt: z.string().datetime().optional()
-});
+}).strict();
 
 export type SwitchModelProfileResponse = z.infer<
   typeof SwitchModelProfileResponseSchema
@@ -120,7 +144,7 @@ export type SwitchModelProfileResponse = z.infer<
 
 export const TaskModelSnapshotRequestSchema = z.object({
   profileId: z.string().min(1).optional()
-});
+}).strict();
 
 export type TaskModelSnapshotRequest = z.infer<
   typeof TaskModelSnapshotRequestSchema
@@ -130,7 +154,7 @@ export const TaskModelSnapshotResponseSchema = z.object({
   profileId: z.string().min(1),
   resolvedProfile: ResolvedModelProfileSchema,
   snapshottedAt: z.string().datetime()
-});
+}).strict();
 
 export type TaskModelSnapshotResponse = z.infer<
   typeof TaskModelSnapshotResponseSchema
@@ -138,6 +162,6 @@ export type TaskModelSnapshotResponse = z.infer<
 
 export const ProvidersResponseSchema = z.object({
   providers: z.array(ProviderSummarySchema)
-});
+}).strict();
 
 export type ProvidersResponse = z.infer<typeof ProvidersResponseSchema>;
