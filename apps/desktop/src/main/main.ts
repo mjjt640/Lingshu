@@ -25,7 +25,7 @@ async function createWindow(): Promise<void> {
     return;
   }
 
-  await window.loadFile(path.join(__dirname, "../index.html"));
+  await window.loadFile(path.join(__dirname, "../renderer/index.html"));
 }
 
 app.whenReady().then(() => {
