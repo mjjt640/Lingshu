@@ -1,4 +1,5 @@
 import fastify, { type FastifyInstance } from "fastify";
+import { registerControlApiCors } from "../control-api/cors.js";
 import { registerHealthRoutes } from "../control-api/healthRoutes.js";
 import { registerModelRoutes } from "../control-api/modelRoutes.js";
 import { loadConfig } from "../modules/config/loadConfig.js";
@@ -27,6 +28,7 @@ export async function createDaemonApp(options: CreateDaemonAppOptions): Promise<
   const modelSelectionStore = createModelSelectionStore(config);
   const modelProfileResolver = createModelProfileResolver(config, modelSelectionStore);
 
+  await registerControlApiCors(app);
   await registerHealthRoutes(app, { startedAt });
   await registerModelRoutes(app, {
     config,
