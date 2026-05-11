@@ -90,9 +90,11 @@ export async function createTaskModelSnapshot(
 
 export function subscribeRuntimeEvents(
   onEvent: (event: RuntimeEvent) => void,
-  onError: (message: string) => void
+  onError: (message: string) => void,
+  onClose: (message: string) => void
 ): () => void {
   const socket = new WebSocket(runtimeSocketUrl);
+  let cleanupClosing = false;
 
   socket.addEventListener("message", (message) => {
     try {
@@ -106,7 +108,14 @@ export function subscribeRuntimeEvents(
     onError("Runtime 事件连接失败");
   });
 
+  socket.addEventListener("close", () => {
+    if (!cleanupClosing) {
+      onClose("Runtime 事件连接已断开");
+    }
+  });
+
   return () => {
+    cleanupClosing = true;
     socket.close();
   };
 }

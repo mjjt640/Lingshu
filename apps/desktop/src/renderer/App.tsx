@@ -7,7 +7,7 @@ import type {
   RuntimeEvent,
   TaskModelSnapshotResponse
 } from "@lingshu/shared";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createTaskModelSnapshot,
   fetchHealth,
@@ -100,6 +100,7 @@ export function App() {
   const [lastSwitchedAt, setLastSwitchedAt] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const snapshotRequestIdRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -145,18 +146,34 @@ export function App() {
 
     const unsubscribe = subscribeRuntimeEvents(
       (event) => {
+        if (!active) {
+          return;
+        }
+
         setEvents((current) => [event, ...current].slice(0, 20));
         if (event.type === "runtime.ready") {
           setStatus("connected");
+          setError(null);
         }
 
         if (event.type === "model.switched") {
+          snapshotRequestIdRef.current += 1;
+          setSnapshotLoading(false);
+
           void fetchModelSelection()
             .then((selectionResponse) => {
+              if (!active) {
+                return;
+              }
+
               setSelectedProfileId(selectionResponse.selectedProfile);
               setResolvedProfile(selectionResponse.resolvedProfile);
             })
             .catch((selectionError) => {
+              if (!active) {
+                return;
+              }
+
               setError(
                 selectionError instanceof Error
                   ? selectionError.message
@@ -166,6 +183,18 @@ export function App() {
         }
       },
       (message) => {
+        if (!active) {
+          return;
+        }
+
+        setError(message);
+      },
+      (message) => {
+        if (!active) {
+          return;
+        }
+
+        setStatus("disconnected");
         setError(message);
       }
     );
@@ -218,8 +247,10 @@ export function App() {
     }
 
     const previousProfileId = selectedProfileId;
+    snapshotRequestIdRef.current += 1;
     setSelectedProfileId(profileId);
     setSwitching(true);
+    setSnapshotLoading(false);
     setSwitchError(null);
     setSnapshotError(null);
 
@@ -229,15 +260,25 @@ export function App() {
       setResolvedProfile(switchResponse.resolvedProfile);
       setLastSwitchedAt(switchResponse.switchedAt ?? new Date().toISOString());
 
+      const requestId = snapshotRequestIdRef.current + 1;
+      snapshotRequestIdRef.current = requestId;
+
       try {
-        const snapshotResponse = await createTaskModelSnapshot();
-        setSnapshot(snapshotResponse);
-      } catch (snapshotLoadError) {
-        setSnapshotError(
-          snapshotLoadError instanceof Error
-            ? snapshotLoadError.message
-            : "模型快照生成失败"
+        const snapshotResponse = await createTaskModelSnapshot(
+          switchResponse.selectedProfile
         );
+
+        if (snapshotRequestIdRef.current === requestId) {
+          setSnapshot(snapshotResponse);
+        }
+      } catch (snapshotLoadError) {
+        if (snapshotRequestIdRef.current === requestId) {
+          setSnapshotError(
+            snapshotLoadError instanceof Error
+              ? snapshotLoadError.message
+              : "模型快照生成失败"
+          );
+        }
       }
     } catch (profileSwitchError) {
       setSelectedProfileId(previousProfileId);
@@ -252,20 +293,35 @@ export function App() {
   }
 
   async function handleCreateSnapshot(): Promise<void> {
+    const profileId = selectedProfileId;
+
+    if (!profileId) {
+      return;
+    }
+
+    const requestId = snapshotRequestIdRef.current + 1;
+    snapshotRequestIdRef.current = requestId;
     setSnapshotLoading(true);
     setSnapshotError(null);
 
     try {
-      const snapshotResponse = await createTaskModelSnapshot();
-      setSnapshot(snapshotResponse);
+      const snapshotResponse = await createTaskModelSnapshot(profileId);
+
+      if (snapshotRequestIdRef.current === requestId) {
+        setSnapshot(snapshotResponse);
+      }
     } catch (snapshotLoadError) {
-      setSnapshotError(
-        snapshotLoadError instanceof Error
-          ? snapshotLoadError.message
-          : "模型快照生成失败"
-      );
+      if (snapshotRequestIdRef.current === requestId) {
+        setSnapshotError(
+          snapshotLoadError instanceof Error
+            ? snapshotLoadError.message
+            : "模型快照生成失败"
+        );
+      }
     } finally {
-      setSnapshotLoading(false);
+      if (snapshotRequestIdRef.current === requestId) {
+        setSnapshotLoading(false);
+      }
     }
   }
 
@@ -394,7 +450,12 @@ export function App() {
             <h2>任务模型快照</h2>
             <button
               type="button"
-              disabled={!selectedProfileId || switching || snapshotLoading}
+              disabled={
+                status !== "connected" ||
+                !selectedProfileId ||
+                switching ||
+                snapshotLoading
+              }
               onClick={() => void handleCreateSnapshot()}
             >
               {snapshotLoading ? "生成中" : "生成下一任务模型快照"}
@@ -441,7 +502,11 @@ export function App() {
           {profiles.length === 0 ? (
             <div className="emptyState">
               <strong>还没有读取到模型 profile</strong>
-              <p>Runtime daemon 未返回可用配置。</p>
+              <p>
+                {status === "connected"
+                  ? "Runtime 已连接，但当前没有配置任何模型 profile。"
+                  : "Runtime daemon 未连接，暂时无法读取模型 profile。"}
+              </p>
             </div>
           ) : null}
 

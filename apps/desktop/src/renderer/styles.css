@@ -35,6 +35,7 @@ button {
   cursor: pointer;
   padding: 8px 12px;
   font-weight: 700;
+  white-space: normal;
 }
 
 button:hover:not(:disabled) {
@@ -382,6 +383,15 @@ code {
 
   .summaryStrip {
     justify-content: flex-start;
+  }
+
+  .sectionTitle {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .sectionTitle button {
+    width: 100%;
   }
 
   .switcherBody,
