@@ -80,7 +80,8 @@ export async function registerModelRoutes(
       const switchResult = selectionStore.switchProfile(parsed.data.profileId);
       const switchedAt = new Date().toISOString();
 
-      eventBus.publish(
+      publishModelSwitchedBestEffort(
+        eventBus,
         RuntimeEventSchema.parse({
           type: "model.switched",
           previousProfile: switchResult.previousProfile,
@@ -117,6 +118,17 @@ export async function registerModelRoutes(
       return { error: getErrorMessage(error) };
     }
   });
+}
+
+function publishModelSwitchedBestEffort(
+  eventBus: RuntimeEventBus,
+  event: ReturnType<typeof RuntimeEventSchema.parse>
+): void {
+  try {
+    eventBus.publish(event);
+  } catch {
+    // Event delivery is best-effort; selection state has already changed.
+  }
 }
 
 function getErrorMessage(error: unknown): string {

@@ -238,6 +238,55 @@ model = "claude-test"
     );
   });
 
+  it("keeps a successful switch response when a model.switched listener throws", async () => {
+    const app = await createConfiguredDaemonApp();
+    const events: RuntimeEvent[] = [];
+    const unsubscribeRecorder = app.eventBus.subscribe((event) => events.push(event));
+    const unsubscribeThrowing = app.eventBus.subscribe((event) => {
+      if (event.type === "model.switched") {
+        throw new Error("listener failed");
+      }
+    });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/v1/models/selection",
+      payload: {
+        profileId: "local"
+      }
+    });
+    unsubscribeThrowing();
+    unsubscribeRecorder();
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      previousProfile: "fast",
+      selectedProfile: "local",
+      resolvedProfile: {
+        id: "local"
+      }
+    });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "model.switched",
+        currentProfile: "local"
+      })
+    );
+
+    const selectionResponse = await app.inject({
+      method: "GET",
+      url: "/v1/models/selection"
+    });
+
+    expect(selectionResponse.statusCode).toBe(200);
+    expect(selectionResponse.json()).toMatchObject({
+      selectedProfile: "local",
+      resolvedProfile: {
+        id: "local"
+      }
+    });
+  });
+
   it("does not change selection or publish model.switched when the target profile cannot resolve", async () => {
     const app = await createConfiguredDaemonApp(`
 [profiles.broken]
