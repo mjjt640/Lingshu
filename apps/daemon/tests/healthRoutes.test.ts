@@ -55,13 +55,15 @@ describe("daemon HTTP routes", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
       defaultProfile: "local",
+      selectedProfile: "local",
       profiles: [
         {
           id: "local",
           provider: "ollama_local",
           model: "llama3.2",
           label: "本地模型",
-          source: "config"
+          source: "config",
+          providerType: "ollama"
         }
       ]
     });

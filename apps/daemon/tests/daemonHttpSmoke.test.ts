@@ -23,7 +23,16 @@ describe("daemon real HTTP startup", () => {
 
       const baseUrl = `http://127.0.0.1:${port}`;
       const healthResponse = await fetchJson(`${baseUrl}/v1/health`);
+      const providersResponse = await fetchJson(`${baseUrl}/v1/providers`);
       const profilesResponse = await fetchJson(`${baseUrl}/v1/models/profiles`);
+      const selectionResponse = await fetchJson(`${baseUrl}/v1/models/selection`);
+      const snapshotResponse = await fetchJson(`${baseUrl}/v1/tasks/model-snapshot`, {
+        method: "POST",
+        body: JSON.stringify({}),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
 
       expect(healthResponse).toMatchObject({
         service: "lingshu-runtime",
@@ -31,17 +40,39 @@ describe("daemon real HTTP startup", () => {
         version: "0.1.0"
       });
       expect(typeof healthResponse.startedAt).toBe("string");
+      expect(providersResponse).toMatchObject({
+        providers: [
+          {
+            id: "ollama_local",
+            type: "ollama"
+          }
+        ]
+      });
       expect(profilesResponse).toMatchObject({
         defaultProfile: "local",
+        selectedProfile: "local",
         profiles: [
           {
             id: "local",
             provider: "ollama_local",
             model: "llama3.2",
             label: "本地模型",
-            source: "config"
+            source: "config",
+            providerType: "ollama"
           }
         ]
+      });
+      expect(selectionResponse).toMatchObject({
+        selectedProfile: "local",
+        resolvedProfile: {
+          id: "local"
+        }
+      });
+      expect(snapshotResponse).toMatchObject({
+        profileId: "local",
+        resolvedProfile: {
+          id: "local"
+        }
       });
     } finally {
       await stopDaemonProcess(daemon);
@@ -114,8 +145,8 @@ async function closeServer(server: Server): Promise<void> {
   });
 }
 
-async function fetchJson(url: string): Promise<Record<string, unknown>> {
-  const response = await fetch(url);
+async function fetchJson(url: string, init?: RequestInit): Promise<Record<string, unknown>> {
+  const response = await fetch(url, init);
   expect(response.status).toBe(200);
   expect(response.headers.get("content-type")).toContain("application/json");
   return (await response.json()) as Record<string, unknown>;
