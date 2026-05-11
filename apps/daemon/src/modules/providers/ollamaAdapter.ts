@@ -16,13 +16,16 @@ import {
 } from "./providerAdapter.js";
 
 export function createOllamaAdapter(config: ProviderConfig): ProviderAdapter {
-  return {
+  const adapter: ProviderAdapter = {
     kind: "ollama",
     summarizeProvider(providerId: string, providerConfig: ProviderConfig): ProviderSummary {
       return summarizeProviderConfig(providerId, providerConfig);
     },
     getDefaultCapabilities(): ModelCapabilities {
       return ollamaModelCapabilities;
+    },
+    createDefaultRequest(input: UnifiedChatCompletionInput): ProviderRequestPreview {
+      return adapter.createChatCompletionRequest(input);
     },
     createChatCompletionRequest(input: UnifiedChatCompletionInput): ProviderRequestPreview {
       const auth = getProviderAuthStatus(config.auth);
@@ -61,4 +64,6 @@ export function createOllamaAdapter(config: ProviderConfig): ProviderAdapter {
       throw new Error('Provider "ollama" does not support Responses request previews');
     }
   };
+
+  return adapter;
 }

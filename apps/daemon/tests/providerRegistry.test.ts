@@ -138,6 +138,64 @@ describe("ProviderRegistry", () => {
     expect(JSON.stringify(request)).not.toContain("sk-real");
   });
 
+  it("uses provider wire_api to choose default OpenAI-compatible request previews", () => {
+    const config = createConfig();
+    config.providers.responses_default = {
+      type: "openai-compatible",
+      base_url: "https://responses.example.test/v1",
+      wire_api: "responses",
+      auth: { source: "none" },
+      catalog: { source: "static" }
+    };
+    config.providers.chat_default = {
+      type: "openai-compatible",
+      base_url: "https://chat.example.test/v1",
+      wire_api: "chat_completions",
+      auth: { source: "none" },
+      catalog: { source: "static" }
+    };
+    const registry = createProviderRegistry(config.providers);
+
+    const responsesRequest = registry.getAdapter("responses_default").createDefaultRequest({
+      model: "vendor/model:beta",
+      messages: [{ role: "user", content: "Hello responses" }]
+    });
+    const chatRequest = registry.getAdapter("chat_default").createDefaultRequest({
+      model: "vendor/model:beta",
+      messages: [{ role: "user", content: "Hello chat" }]
+    });
+
+    expect(responsesRequest.url).toBe("https://responses.example.test/v1/responses");
+    expect(responsesRequest.body).toMatchObject({
+      input: [
+        {
+          role: "user",
+          content: [{ type: "input_text", text: "Hello responses" }]
+        }
+      ]
+    });
+    expect(chatRequest.url).toBe("https://chat.example.test/v1/chat/completions");
+    expect(chatRequest.body).toMatchObject({
+      messages: [{ role: "user", content: "Hello chat" }]
+    });
+  });
+
+  it("defaults OpenAI-compatible request previews to responses and Ollama to chat", () => {
+    const registry = createProviderRegistry(createConfig().providers);
+
+    const openAiCompatibleRequest = registry.getAdapter("relay_main").createDefaultRequest({
+      model: "vendor/model:beta",
+      messages: [{ role: "user", content: "Hello default" }]
+    });
+    const ollamaRequest = registry.getAdapter("ollama_local").createDefaultRequest({
+      model: "llama3.2",
+      messages: [{ role: "user", content: "Hello local" }]
+    });
+
+    expect(openAiCompatibleRequest.url).toBe("https://relay.example.com/proxy/openai/v1/responses");
+    expect(ollamaRequest.url).toBe("http://127.0.0.1:11434/api/chat");
+  });
+
   it("maps third-party relay OpenAI-compatible chat requests with opaque model IDs", () => {
     const registry = createProviderRegistry(createConfig().providers);
 
@@ -226,6 +284,24 @@ describe("ProviderRegistry", () => {
         stream: true
       }
     });
+  });
+
+  it("includes reasoning effort in OpenAI-compatible request preview bodies", () => {
+    const registry = createProviderRegistry(createConfig().providers);
+
+    const responsesRequest = registry.getAdapter("relay_main").createResponsesRequest({
+      model: "vendor/model:beta",
+      messages: [{ role: "user", content: "Hello reasoning" }],
+      reasoningEffort: "xhigh"
+    });
+    const chatRequest = registry.getAdapter("relay_main").createChatCompletionRequest({
+      model: "vendor/model:beta",
+      messages: [{ role: "user", content: "Hello reasoning" }],
+      reasoningEffort: "high"
+    });
+
+    expect(responsesRequest.body.reasoning).toEqual({ effort: "xhigh" });
+    expect(chatRequest.body.reasoning).toEqual({ effort: "high" });
   });
 
   it("maps responses text and image input parts to input_text and input_image", () => {

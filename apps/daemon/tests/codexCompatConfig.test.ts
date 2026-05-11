@@ -58,6 +58,47 @@ describe("normalizeCodexCompatConfig", () => {
     expect(normalized.app.default_profile).toBe("primary");
   });
 
+  it("strips Codex raw compatibility fields after normalization", () => {
+    const normalized = normalizeCodexCompatConfig({
+      model_provider: "OpenAI",
+      model: "gpt-5.4",
+      review_model: "gpt-5.4-review",
+      model_reasoning_effort: "xhigh",
+      disable_response_storage: true,
+      network_access: "enabled",
+      model_context_window: 1000000,
+      model_auto_compact_token_limit: 900000,
+      model_providers: {
+        OpenAI: {
+          name: "OpenAI",
+          base_url: "https://subapi.muxueai.pro",
+          wire_api: "responses",
+          requires_openai_auth: true
+        }
+      }
+    });
+
+    for (const rawKey of [
+      "model_provider",
+      "model",
+      "review_model",
+      "model_reasoning_effort",
+      "disable_response_storage",
+      "network_access",
+      "model_context_window",
+      "model_auto_compact_token_limit",
+      "model_providers"
+    ]) {
+      expect(normalized).not.toHaveProperty(rawKey);
+    }
+    expect(normalized.providers.OpenAI.wire_api).toBe("responses");
+    expect(normalized.profiles.primary).toMatchObject({
+      provider: "OpenAI",
+      model: "gpt-5.4",
+      reasoning_effort: "xhigh"
+    });
+  });
+
   it("preserves native providers and profiles when Codex compatibility fields overlap", () => {
     const normalized = normalizeCodexCompatConfig({
       model_provider: "OpenAI",

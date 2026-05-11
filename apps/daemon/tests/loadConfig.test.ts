@@ -121,6 +121,19 @@ requires_openai_auth = true
       reasoning_effort: "xhigh"
     });
     expect(result.config.app.default_profile).toBe("primary");
+    for (const rawKey of [
+      "model_provider",
+      "model",
+      "review_model",
+      "model_reasoning_effort",
+      "disable_response_storage",
+      "network_access",
+      "model_context_window",
+      "model_auto_compact_token_limit",
+      "model_providers"
+    ]) {
+      expect(result.config).not.toHaveProperty(rawKey);
+    }
     expect(result.sources).toContain(path.join(homeDir, ".codex", "config.toml"));
   });
 

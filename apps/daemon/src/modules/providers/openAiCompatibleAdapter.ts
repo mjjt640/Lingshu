@@ -92,13 +92,18 @@ export function createOpenAiCompatibleAdapter(
   kind: Extract<ProviderKind, "openai" | "openrouter" | "openai-compatible">,
   config: ProviderConfig
 ): ProviderAdapter {
-  return {
+  const adapter: ProviderAdapter = {
     kind,
     summarizeProvider(providerId: string, providerConfig: ProviderConfig): ProviderSummary {
       return summarizeProviderConfig(providerId, providerConfig);
     },
     getDefaultCapabilities(): ModelCapabilities {
       return openAiCompatibleModelCapabilities;
+    },
+    createDefaultRequest(input: UnifiedChatCompletionInput): ProviderRequestPreview {
+      return config.wire_api === "chat_completions"
+        ? adapter.createChatCompletionRequest(input)
+        : adapter.createResponsesRequest(input);
     },
     createChatCompletionRequest(input: UnifiedChatCompletionInput): ProviderRequestPreview {
       const auth = getProviderAuthStatus(config.auth);
@@ -113,6 +118,10 @@ export function createOpenAiCompatibleAdapter(
 
       if (input.maxOutputTokens !== undefined) {
         body.max_tokens = input.maxOutputTokens;
+      }
+
+      if (input.reasoningEffort !== undefined) {
+        body.reasoning = { effort: input.reasoningEffort };
       }
 
       if (input.stream !== undefined) {
@@ -143,6 +152,10 @@ export function createOpenAiCompatibleAdapter(
         body.max_output_tokens = input.maxOutputTokens;
       }
 
+      if (input.reasoningEffort !== undefined) {
+        body.reasoning = { effort: input.reasoningEffort };
+      }
+
       if (input.stream !== undefined) {
         body.stream = input.stream;
       }
@@ -157,4 +170,6 @@ export function createOpenAiCompatibleAdapter(
       };
     }
   };
+
+  return adapter;
 }

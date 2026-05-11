@@ -6,6 +6,7 @@ import type {
 import {
   ProviderBaseUrlSchema,
   ProviderSummarySchema,
+  type ReasoningEffort,
   type AuthSource,
   type ProviderConfig,
   type ProviderKind
@@ -27,6 +28,7 @@ export interface UnifiedChatCompletionInput {
   messages: UnifiedChatMessage[];
   temperature?: number;
   maxOutputTokens?: number;
+  reasoningEffort?: ReasoningEffort;
   stream?: boolean;
 }
 
@@ -43,6 +45,7 @@ export interface ProviderAdapter {
   kind: ProviderKind;
   summarizeProvider(providerId: string, config: ProviderConfig): ProviderSummary;
   getDefaultCapabilities(): ModelCapabilities;
+  createDefaultRequest(input: UnifiedChatCompletionInput): ProviderRequestPreview;
   createChatCompletionRequest(input: UnifiedChatCompletionInput): ProviderRequestPreview;
   createResponsesRequest(input: UnifiedChatCompletionInput): ProviderRequestPreview;
 }
