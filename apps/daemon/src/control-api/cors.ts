@@ -7,10 +7,17 @@ const allowedOrigins = new Set([
 
 const allowedMethods = "GET, POST, PATCH, OPTIONS";
 const allowedHeaders = "content-type";
+const controlApiPaths = new Set([
+  "/v1/health",
+  "/v1/providers",
+  "/v1/models/profiles",
+  "/v1/models/selection",
+  "/v1/tasks/model-snapshot"
+]);
 
 export async function registerControlApiCors(app: FastifyInstance): Promise<void> {
   app.addHook("onRequest", async (request, reply) => {
-    if (!request.url.startsWith("/v1/")) {
+    if (!controlApiPaths.has(getRequestPathname(request))) {
       return;
     }
 
@@ -24,7 +31,7 @@ export async function registerControlApiCors(app: FastifyInstance): Promise<void
     if (request.method === "OPTIONS") {
       if (isAllowedOrigin) {
         reply.header("Access-Control-Allow-Methods", allowedMethods);
-        reply.header("Access-Control-Allow-Headers", getRequestedHeaders(request) ?? allowedHeaders);
+        reply.header("Access-Control-Allow-Headers", allowedHeaders);
       }
 
       return reply.code(204).send();
@@ -34,7 +41,7 @@ export async function registerControlApiCors(app: FastifyInstance): Promise<void
 
 function applyCorsHeaders(reply: FastifyReply, origin: string): void {
   reply.header("Access-Control-Allow-Origin", origin);
-  reply.header("Vary", "Origin");
+  appendVaryHeader(reply, "Origin");
 }
 
 function getRequestOrigin(request: FastifyRequest): string | undefined {
@@ -42,7 +49,27 @@ function getRequestOrigin(request: FastifyRequest): string | undefined {
   return typeof origin === "string" ? origin : undefined;
 }
 
-function getRequestedHeaders(request: FastifyRequest): string | undefined {
-  const requestedHeaders = request.headers["access-control-request-headers"];
-  return typeof requestedHeaders === "string" ? requestedHeaders : undefined;
+function getRequestPathname(request: FastifyRequest): string {
+  return new URL(request.url, "http://localhost").pathname;
+}
+
+function appendVaryHeader(reply: FastifyReply, value: string): void {
+  const current = reply.getHeader("Vary");
+  if (current === undefined) {
+    reply.header("Vary", value);
+    return;
+  }
+
+  const existingValues = [current]
+    .flat()
+    .flatMap((headerValue) => String(headerValue).split(","))
+    .map((headerValue) => headerValue.trim())
+    .filter((headerValue) => headerValue.length > 0);
+  const hasValue = existingValues.some((headerValue) => headerValue.toLowerCase() === value.toLowerCase());
+
+  if (!hasValue) {
+    existingValues.push(value);
+  }
+
+  reply.header("Vary", existingValues.join(", "));
 }
