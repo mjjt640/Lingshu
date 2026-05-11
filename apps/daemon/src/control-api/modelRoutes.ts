@@ -40,12 +40,17 @@ export async function registerModelRoutes(
     }
   });
 
-  app.get("/v1/models/profiles", async (): Promise<ModelProfilesResponse> => {
-    return {
-      defaultProfile: config.app.default_profile,
-      selectedProfile: selectionStore.getSelectedProfile(),
-      profiles: resolver.listProfileSummaries()
-    };
+  app.get("/v1/models/profiles", async (_, reply): Promise<ModelProfilesResponse | { error: string }> => {
+    try {
+      return {
+        defaultProfile: config.app.default_profile,
+        selectedProfile: selectionStore.getSelectedProfile(),
+        profiles: resolver.listProfileSummaries()
+      };
+    } catch (error) {
+      reply.code(500);
+      return { error: getErrorMessage(error) };
+    }
   });
 
   app.get("/v1/models/selection", async (_, reply): Promise<ModelSelectionResponse | { error: string }> => {
@@ -71,8 +76,8 @@ export async function registerModelRoutes(
     }
 
     try {
+      const resolvedProfile = resolver.resolveProfile(parsed.data.profileId);
       const switchResult = selectionStore.switchProfile(parsed.data.profileId);
-      const resolvedProfile = resolver.resolveProfile(switchResult.selectedProfile);
       const switchedAt = new Date().toISOString();
 
       eventBus.publish(

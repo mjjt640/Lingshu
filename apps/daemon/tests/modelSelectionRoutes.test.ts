@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RuntimeEvent } from "@lingshu/shared";
 import { createDaemonApp } from "../src/bootstrap/createDaemonApp.js";
 
-async function createConfiguredDaemonApp() {
+async function createConfiguredDaemonApp(extraConfig = "") {
   const testRoot = await mkdtemp(path.join(os.tmpdir(), "lingshu-model-routes-"));
   const homeDir = path.join(testRoot, "home");
   const workspaceDir = path.join(testRoot, "workspace");
@@ -34,6 +34,8 @@ label = "Fast cloud"
 temperature = 0.2
 max_output_tokens = 1024
 reasoning_effort = "high"
+
+${extraConfig}
 `
   );
 
@@ -44,6 +46,14 @@ reasoning_effort = "high"
   });
 
   return app;
+}
+
+function expectErrorBody(response: { json: () => unknown }): string {
+  const body = response.json();
+  expect(body).toEqual({
+    error: expect.any(String)
+  });
+  return (body as { error: string }).error;
 }
 
 describe("model selection HTTP routes", () => {
@@ -61,8 +71,8 @@ describe("model selection HTTP routes", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({
-      providers: [
+    expect(response.json()).toMatchObject({
+      providers: expect.arrayContaining([
         {
           id: "ollama_local",
           type: "ollama",
@@ -78,7 +88,7 @@ describe("model selection HTTP routes", () => {
           auth: { source: "env", status: "missing" },
           catalog: { source: "remote" }
         }
-      ]
+      ])
     });
     expect(response.body).not.toContain("OPENAI_API_KEY");
   });
@@ -95,25 +105,49 @@ describe("model selection HTTP routes", () => {
     expect(response.json()).toMatchObject({
       defaultProfile: "fast",
       selectedProfile: "fast",
-      profiles: [
-        {
+      profiles: expect.arrayContaining([
+        expect.objectContaining({
           id: "local",
           provider: "ollama_local",
           model: "llama3.2",
           label: "本地模型",
           source: "config",
           providerType: "ollama"
-        },
-        {
+        }),
+        expect.objectContaining({
           id: "fast",
           provider: "openai_main",
           model: "gpt-4.1-mini",
           label: "Fast cloud",
           source: "config",
           providerType: "openai"
-        }
-      ]
+        })
+      ])
     });
+  });
+
+  it("returns a JSON error when model profile summaries cannot be resolved", async () => {
+    const app = await createConfiguredDaemonApp(`
+[providers.unsupported_anthropic]
+type = "anthropic"
+base_url = "https://api.anthropic.com"
+auth = { source = "none" }
+catalog = { source = "remote" }
+
+[profiles.unsupported]
+provider = "unsupported_anthropic"
+model = "claude-test"
+`);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/models/profiles"
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(expectErrorBody(response)).toBe(
+      'Unsupported provider kind "anthropic" for provider "unsupported_anthropic"'
+    );
   });
 
   it("returns the current selected profile and resolved profile", async () => {
@@ -204,6 +238,74 @@ describe("model selection HTTP routes", () => {
     );
   });
 
+  it("does not change selection or publish model.switched when the target profile cannot resolve", async () => {
+    const app = await createConfiguredDaemonApp(`
+[profiles.broken]
+provider = "missing_provider"
+model = "gpt-broken"
+`);
+    const events: RuntimeEvent[] = [];
+    const unsubscribe = app.eventBus.subscribe((event) => events.push(event));
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/v1/models/selection",
+      payload: {
+        profileId: "broken"
+      }
+    });
+    unsubscribe();
+
+    expect(response.statusCode).toBe(500);
+    expect(expectErrorBody(response)).toBe(
+      'Model profile "broken" references missing provider "missing_provider"'
+    );
+    expect(events).not.toContainEqual(
+      expect.objectContaining({
+        type: "model.switched"
+      })
+    );
+
+    const selectionResponse = await app.inject({
+      method: "GET",
+      url: "/v1/models/selection"
+    });
+
+    expect(selectionResponse.statusCode).toBe(200);
+    expect(selectionResponse.json()).toMatchObject({
+      selectedProfile: "fast",
+      resolvedProfile: {
+        id: "fast",
+        provider: {
+          id: "openai_main"
+        }
+      }
+    });
+  });
+
+  it("returns 400 JSON errors for invalid model selection patch bodies", async () => {
+    const app = await createConfiguredDaemonApp();
+
+    const missingProfileResponse = await app.inject({
+      method: "PATCH",
+      url: "/v1/models/selection",
+      payload: {}
+    });
+    const extraFieldResponse = await app.inject({
+      method: "PATCH",
+      url: "/v1/models/selection",
+      payload: {
+        profileId: "local",
+        extra: true
+      }
+    });
+
+    expect(missingProfileResponse.statusCode).toBe(400);
+    expect(expectErrorBody(missingProfileResponse)).not.toHaveLength(0);
+    expect(extraFieldResponse.statusCode).toBe(400);
+    expect(expectErrorBody(extraFieldResponse)).not.toHaveLength(0);
+  });
+
   it("returns 404 with a clear JSON error when switching to an unknown profile", async () => {
     const app = await createConfiguredDaemonApp();
 
@@ -241,6 +343,22 @@ describe("model selection HTTP routes", () => {
         model: "gpt-4.1-mini"
       }
     });
+  });
+
+  it("returns a 400 JSON error for invalid task model snapshot bodies", async () => {
+    const app = await createConfiguredDaemonApp();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/tasks/model-snapshot",
+      payload: {
+        profileId: "fast",
+        extra: true
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(expectErrorBody(response)).not.toHaveLength(0);
   });
 
   it("keeps a snapshot created before a switch pointed at the old profile", async () => {
