@@ -26,10 +26,10 @@ Phase 2 建立 Provider/Profile 解析、运行时模型切换和任务模型快
 
 `ProviderAdapter` 只生成 request preview，不发送真实网络请求。它把统一输入转换为目标 wire API 的请求形状，便于测试和 UI/Runtime 预览。
 
-- 支持 `chat_completions` 和 `responses` 两种 request surface。
+- OpenAI-compatible 系列支持 `chat_completions` 和 `responses` 两种 request surface；Ollama 默认走本地 chat surface。
 - 支持文本和图片输入；图片会按目标 API 转成对应 input part。
 - `reasoning_effort` 会进入 preview，供后续真实执行复用。
-- provider 的 `wire_api` 决定默认 request surface；调用方仍可显式创建某一种 preview。
+- OpenAI-compatible provider 的 `wire_api` 决定默认 request surface；调用方仍可显式创建某一种 preview。
 
 ## OpenAI-compatible 中转站
 
