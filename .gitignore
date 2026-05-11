@@ -1,8 +1,12 @@
-.env
-.env.local
 node_modules/
 dist/
 out/
 coverage/
+.vite/
+.env
+.env.*
+!.env.example
 *.log
-*.tmp
+*.tsbuildinfo
+
+.lingshu.local.toml

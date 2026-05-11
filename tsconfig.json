@@ -1,0 +1,4 @@
+{
+  "include": [],
+  "references": [{ "path": "./packages/shared" }, { "path": "./apps/daemon" }, { "path": "./apps/desktop" }]
+}
