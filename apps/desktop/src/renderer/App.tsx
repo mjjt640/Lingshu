@@ -157,9 +157,6 @@ export function App() {
         }
 
         if (event.type === "model.switched") {
-          snapshotRequestIdRef.current += 1;
-          setSnapshotLoading(false);
-
           void fetchModelSelection()
             .then((selectionResponse) => {
               if (!active) {
