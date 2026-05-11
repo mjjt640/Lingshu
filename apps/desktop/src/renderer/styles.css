@@ -22,6 +22,32 @@ select {
   font: inherit;
 }
 
+button,
+select {
+  border: 1px solid #cfc8ba;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #172123;
+}
+
+button {
+  min-height: 38px;
+  cursor: pointer;
+  padding: 8px 12px;
+  font-weight: 700;
+}
+
+button:hover:not(:disabled) {
+  border-color: #1d4f57;
+  color: #1d4f57;
+}
+
+button:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .appShell {
   display: grid;
   min-height: 100vh;
@@ -112,14 +138,18 @@ select {
 }
 
 .runtimeFacts,
-.profileCard dl {
+.profileCard dl,
+.selectionFacts,
+.snapshotFacts {
   display: grid;
   gap: 12px;
   margin: 0;
 }
 
 .runtimeFacts div,
-.profileCard dl div {
+.profileCard dl div,
+.selectionFacts div,
+.snapshotFacts div {
   display: grid;
   gap: 4px;
 }
@@ -197,10 +227,52 @@ dd {
 
 .profileCard,
 .emptyState,
-.eventPanel {
+.eventPanel,
+.profileSwitcher,
+.snapshotPanel {
   border: 1px solid #ddd8cc;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.profileSwitcher,
+.snapshotPanel {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
+.switcherBody {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.selectField {
+  display: grid;
+  gap: 8px;
+}
+
+.selectField span {
+  color: #76716a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.selectField select {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+}
+
+.selectionFacts,
+.snapshotFacts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.wideFact {
+  grid-column: 1 / -1;
 }
 
 .profileCard {
@@ -231,10 +303,28 @@ dd {
   font-weight: 700;
 }
 
+.selectedTag {
+  border-radius: 999px;
+  background: #dff1e8;
+  color: #17633f;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tagGroup {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 code {
   color: #7d4d1f;
   font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   font-size: 13px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .emptyState {
@@ -292,5 +382,11 @@ code {
 
   .summaryStrip {
     justify-content: flex-start;
+  }
+
+  .switcherBody,
+  .selectionFacts,
+  .snapshotFacts {
+    grid-template-columns: 1fr;
   }
 }
